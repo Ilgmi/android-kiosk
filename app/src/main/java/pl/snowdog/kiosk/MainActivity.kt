@@ -1,5 +1,6 @@
 package pl.snowdog.kiosk
 
+import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
 import android.content.*
@@ -9,11 +10,13 @@ import android.os.UserManager
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.edit
 import com.google.android.material.snackbar.Snackbar
 import pl.snowdog.kiosk.databinding.ActivityMainBinding
+import kotlin.system.exitProcess
 
 
 class MainActivity : AppCompatActivity() {
@@ -35,10 +38,20 @@ class MainActivity : AppCompatActivity() {
         mAdminComponentName = MyDeviceAdminReceiver.getComponentName(this)
         mDevicePolicyManager =
             getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-
-        mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
         sharedPref =
-            getSharedPreferences(getString(R.string.storage_key), Context.MODE_PRIVATE) ?: return
+            getSharedPreferences(getString(R.string.storage_key), MODE_PRIVATE) ?: return
+
+        if (!mDevicePolicyManager.isAdminActive(mAdminComponentName)){
+            requestAdminActivation()
+            return
+        }
+
+        init()
+    }
+
+    private fun init() {
+//        mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
+
 
         val url = sharedPref.getString(getString(R.string.url_key), "")
         binding.txtUrl.editText?.setText(url)
@@ -49,7 +62,7 @@ class MainActivity : AppCompatActivity() {
 
         val edit = sharedPref.getBoolean(getString(R.string.edit_key), false)
 
-        if ( !edit && !url.isNullOrEmpty() && !pin.isNullOrEmpty()) {
+        if (!edit && !url.isNullOrEmpty() && !pin.isNullOrEmpty()) {
             val intent = Intent(applicationContext, WebviewActivity::class.java)
             startActivity(intent)
             return
@@ -67,6 +80,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         initButtons(isAdmin)
+    }
+
+    private fun requestAdminActivation() {
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, mAdminComponentName)
+            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Enable admin for kiosk features like screen lock.")
+        }
+
+        val resultLauncher = this.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                init()
+            }else {
+                moveTaskToBack(true)
+                exitProcess(-1)
+            }
+        }
+
+        resultLauncher.launch(intent)
     }
 
     private fun initButtons(isAdmin: Boolean) {

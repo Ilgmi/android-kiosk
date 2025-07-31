@@ -7,6 +7,11 @@ import android.content.Intent
 import android.util.Log
 
 class MyDeviceAdminReceiver : DeviceAdminReceiver() {
+
+    override fun onEnabled(context: Context, intent: Intent) {
+        super.onEnabled(context, intent)
+    }
+
     companion object {
         fun getComponentName(context: Context): ComponentName {
             return ComponentName(context.applicationContext, MyDeviceAdminReceiver::class.java)
