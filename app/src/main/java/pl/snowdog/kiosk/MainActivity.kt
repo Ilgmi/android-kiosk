@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.content.edit
 import com.google.android.material.snackbar.Snackbar
 import pl.snowdog.kiosk.databinding.ActivityMainBinding
 
@@ -43,10 +44,12 @@ class MainActivity : AppCompatActivity() {
         binding.txtUrl.editText?.setText(url)
         val pin = sharedPref.getString(getString(R.string.pin_key), "")
         binding.txtPin.editText?.setText(pin)
+        val autostart = sharedPref.getBoolean(getString(R.string.autostart), false)
+        binding.cbKioskAutostart.isChecked = autostart
 
         val edit = sharedPref.getBoolean(getString(R.string.edit_key), false)
 
-        if (!edit && url != null && url != "" && pin != null && pin != "") {
+        if ( !edit && !url.isNullOrEmpty() && !pin.isNullOrEmpty()) {
             val intent = Intent(applicationContext, WebviewActivity::class.java)
             startActivity(intent)
             return
@@ -79,6 +82,13 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra(LOCK_ACTIVITY_KEY, false)
             startActivity(intent)
         }
+
+        binding.cbKioskAutostart.setOnCheckedChangeListener { _, value ->
+            sharedPref.edit(commit = true) {
+                putBoolean(getString(R.string.autostart), value)
+            }
+        }
+
     }
 
     override fun onResume() {
@@ -131,16 +141,14 @@ class MainActivity : AppCompatActivity() {
 
 
         // save URL on storage
-        with(sharedPref.edit()) {
+        sharedPref.edit(commit = true) {
             putString(getString(R.string.url_key), url)
             putString(getString(R.string.pin_key), pin)
-            commit()
         }
 
         if (enable) {
-            with(sharedPref.edit()) {
+            sharedPref.edit(commit = true) {
                 putBoolean(getString(R.string.edit_key), false)
-                commit()
             }
             val intent = Intent(applicationContext, WebviewActivity::class.java)
             startActivity(intent)

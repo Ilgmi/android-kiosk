@@ -3,7 +3,13 @@ package pl.snowdog.kiosk
 import android.app.AlertDialog
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
-import android.content.*
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.http.SslError
 import android.os.BatteryManager
 import android.os.Build
@@ -22,13 +28,17 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.snackbar.Snackbar
 import pl.snowdog.kiosk.databinding.ActivityMainBinding
 
 
 class WebviewActivity : AppCompatActivity() {
+    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var webView: WebView
     private lateinit var reloadOnConnected: ReloadOnConnected
     private lateinit var adminComponentName: ComponentName
@@ -44,19 +54,32 @@ class WebviewActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
 
         val defaultUrl = "https://on-system.net"
-        sharedPref = getSharedPreferences(getString(R.string.storage_key), Context.MODE_PRIVATE)?: return
+        sharedPref =
+            getSharedPreferences(getString(R.string.storage_key), Context.MODE_PRIVATE) ?: return
         val url = sharedPref.getString(getString(R.string.url_key), defaultUrl)
         pin = sharedPref.getString(getString(R.string.pin_key), "1234")
 
         initVars()
         setKioskPolicies(isAdmin())
         showInFullScreen(findViewById(R.id.root))
-        setupWebView(url?:defaultUrl)
+        setupWebView(url ?: defaultUrl)
         listenToConnectionChange()
+        initSwipe()
+
 
         val fab: View = findViewById(R.id.fab)
         fab.setOnClickListener {
             showDialog()
+        }
+    }
+
+    private fun initSwipe() {
+        swipeRefreshLayout.setOnRefreshListener {
+            if (reloadOnConnected.isNetworkAvailable()){
+                webView.reload()
+            }else{
+                Snackbar.make(binding.content, "No internet Connection", Snackbar.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -95,9 +118,8 @@ class WebviewActivity : AppCompatActivity() {
     }
 
     private fun goToHome() {
-        with (sharedPref.edit()) {
+        sharedPref.edit(commit = true) {
             putBoolean(getString(R.string.edit_key), true)
-            commit()
         }
         super.onBackPressed()
     }
@@ -112,11 +134,14 @@ class WebviewActivity : AppCompatActivity() {
             addCategory(Intent.CATEGORY_DEFAULT)
         }
         mDevicePolicyManager.addPersistentPreferredActivity(
-            adminComponentName, intentFilter, ComponentName(packageName, MainActivity::class.java.name)
+            adminComponentName,
+            intentFilter,
+            ComponentName(packageName, MainActivity::class.java.name)
         )
     }
 
-    private fun setUserRestriction(restriction: String) = mDevicePolicyManager.addUserRestriction(adminComponentName, restriction)
+    private fun setUserRestriction(restriction: String) =
+        mDevicePolicyManager.addUserRestriction(adminComponentName, restriction)
 
     private fun enableStayOnWhilePluggedIn() =
         mDevicePolicyManager.setGlobalSetting(
@@ -128,10 +153,10 @@ class WebviewActivity : AppCompatActivity() {
         )
 
     private fun setUpdatePolicy() {
-            mDevicePolicyManager.setSystemUpdatePolicy(
-                adminComponentName,
-                SystemUpdatePolicy.createWindowedInstallPolicy(60, 120)
-            )
+        mDevicePolicyManager.setSystemUpdatePolicy(
+            adminComponentName,
+            SystemUpdatePolicy.createWindowedInstallPolicy(60, 120)
+        )
     }
 
     private fun setRestrictions() {
@@ -157,13 +182,13 @@ class WebviewActivity : AppCompatActivity() {
     }
 
     private fun setImmersiveMode() {
-            val flags = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
-            window.decorView.systemUiVisibility = flags
+        val flags = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+        window.decorView.systemUiVisibility = flags
     }
 
     private fun setLockTask(isAdmin: Boolean) {
@@ -234,13 +259,21 @@ class WebviewActivity : AppCompatActivity() {
             ) {
                 handler?.proceed() // Ignore SSL certificate errors
             }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                swipeRefreshLayout.isRefreshing = false
+            }
         }
+
+
 
         with(webView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             useWideViewPort = true
-            userAgentString =  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36"
+            userAgentString =
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36"
             loadWithOverviewMode = true
             setSupportZoom(true)
             builtInZoomControls = true
@@ -255,9 +288,11 @@ class WebviewActivity : AppCompatActivity() {
 
     private fun initVars() {
         webView = findViewById(R.id.webView)
+        swipeRefreshLayout = findViewById(R.id.swipe_refresh_layout)
         reloadOnConnected = ReloadOnConnected(webView)
         adminComponentName = MyDeviceAdminReceiver.getComponentName(this)
-        mDevicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        mDevicePolicyManager =
+            getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         policyManager = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
     }
 

@@ -15,4 +15,5 @@
     <string name="url_wrong">URL is not valid</string>
     <string name="pin_hint">Enter PIN&#8230;</string>
     <string name="pin_wrong">PIN is not valid</string>
+    <string name="autostart">AUTOSTART</string>
 </resources>

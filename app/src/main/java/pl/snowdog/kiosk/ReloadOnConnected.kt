@@ -23,6 +23,14 @@ class ReloadOnConnected(
         connectivityManager.registerNetworkCallback(networkRequest, this)
     }
 
+    fun isNetworkAvailable(): Boolean{
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        return capabilities != null && (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+    }
+
+
     fun onActivityDestroy() {
         connectivityManager.unregisterNetworkCallback(this)
     }

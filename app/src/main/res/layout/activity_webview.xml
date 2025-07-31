@@ -9,14 +9,21 @@
     android:backgroundTint="@color/colorAccent"
     tools:context=".WebviewActivity">
 
-    <WebView
-        android:id="@+id/webView"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh_layout"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
