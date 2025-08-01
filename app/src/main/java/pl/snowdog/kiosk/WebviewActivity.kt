@@ -23,6 +23,7 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
 import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
@@ -263,6 +264,14 @@ class WebviewActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 swipeRefreshLayout.isRefreshing = false
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient(){
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                if (newProgress == 100)
+                    swipeRefreshLayout.isRefreshing = false
             }
         }
 
