@@ -1,6 +1,7 @@
 package pl.snowdog.kiosk
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
 import android.content.*
@@ -92,8 +93,15 @@ class MainActivity : AppCompatActivity() {
             if (result.resultCode == Activity.RESULT_OK) {
                 init()
             }else {
-                moveTaskToBack(true)
-                exitProcess(-1)
+                AlertDialog.Builder(this)
+                    .setTitle("Error")
+                    .setMessage("Could not get the needed Rights")
+                    .setPositiveButton("Ok"){_,_ ->
+                        moveTaskToBack(true)
+                        exitProcess(-1)
+                    }.setCancelable(false)
+                    .create()
+                    .show()
             }
         }
 
