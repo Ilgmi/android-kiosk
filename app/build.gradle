@@ -9,7 +9,7 @@ android {
         targetSdkVersion rootProject.ext.buildToolsVersion
         compileSdk rootProject.ext.buildToolsVersion
         versionCode 3
-        versionName "1.0"
+        versionName "1.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

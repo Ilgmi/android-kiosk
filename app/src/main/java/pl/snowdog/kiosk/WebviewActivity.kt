@@ -77,11 +77,21 @@ class WebviewActivity : AppCompatActivity() {
     private fun initSwipe() {
         swipeRefreshLayout.setOnRefreshListener {
             if (reloadOnConnected.isNetworkAvailable()){
+                webView.stopLoading()
                 webView.reload()
+                webView.evaluateJavascript("location.reload(true);", null)
+                endRefreshWithTimeout()
             }else{
+                swipeRefreshLayout.isRefreshing = false;
                 Snackbar.make(binding.content, "No internet Connection", Snackbar.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun endRefreshWithTimeout() {
+        swipeRefreshLayout.postDelayed({
+            if (swipeRefreshLayout.isRefreshing) swipeRefreshLayout.isRefreshing = false
+        }, 8_000) // 8s safety net
     }
 
     private fun showDialog() {
@@ -253,16 +263,31 @@ class WebviewActivity : AppCompatActivity() {
 
     private fun setupWebView(url: String) {
         webView.webViewClient = object : WebViewClient() {
-            override fun onReceivedSslError(
-                view: WebView?,
-                handler: SslErrorHandler?,
-                error: SslError?
-            ) {
-                handler?.proceed() // Ignore SSL certificate errors
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (!swipeRefreshLayout.isRefreshing) swipeRefreshLayout.isRefreshing = true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                swipeRefreshLayout.isRefreshing = false
+            }
+
+            // Network/SSL/HTTP errors should also end the refresh animation
+            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                super.onReceivedError(view, request, error)
+                swipeRefreshLayout.isRefreshing = false
+            }
+
+            override fun onReceivedHttpError(view: WebView?, request: android.webkit.WebResourceRequest?, errorResponse: android.webkit.WebResourceResponse?) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                swipeRefreshLayout.isRefreshing = false
+            }
+
+            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                // If you proceed, still make sure the spinner stops in case the page bails out
+                handler?.proceed()
                 swipeRefreshLayout.isRefreshing = false
             }
         }
