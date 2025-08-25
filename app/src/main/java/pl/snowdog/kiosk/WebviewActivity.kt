@@ -1,6 +1,7 @@
 package pl.snowdog.kiosk
 
 import android.app.AlertDialog
+import android.app.ComponentCaller
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
 import android.content.ComponentName
@@ -67,24 +68,45 @@ class WebviewActivity : AppCompatActivity() {
         listenToConnectionChange()
         initSwipe()
 
+        RefreshScheduler.cancel(this.applicationContext)
+        setScheduler(this.applicationContext)
+
+
 
         val fab: View = findViewById(R.id.fab)
         fab.setOnClickListener {
             showDialog()
         }
+
+        if (intent?.action == RefreshScheduler.ACTION_REFRESH) {
+            reloadSite()
+        }
+
+    }
+
+    override fun onNewIntent(intent: Intent, caller: ComponentCaller) {
+        super.onNewIntent(intent, caller)
+
+        if (intent.action == RefreshScheduler.ACTION_REFRESH){
+            reloadSite()
+        }
+    }
+
+    private fun reloadSite() {
+        if (reloadOnConnected.isNetworkAvailable()){
+            webView.stopLoading()
+            webView.reload()
+            webView.evaluateJavascript("location.reload(true);", null)
+            endRefreshWithTimeout()
+        }else{
+            swipeRefreshLayout.isRefreshing = false;
+            Snackbar.make(binding.content, "No internet Connection", Snackbar.LENGTH_SHORT).show()
+        }
     }
 
     private fun initSwipe() {
         swipeRefreshLayout.setOnRefreshListener {
-            if (reloadOnConnected.isNetworkAvailable()){
-                webView.stopLoading()
-                webView.reload()
-                webView.evaluateJavascript("location.reload(true);", null)
-                endRefreshWithTimeout()
-            }else{
-                swipeRefreshLayout.isRefreshing = false;
-                Snackbar.make(binding.content, "No internet Connection", Snackbar.LENGTH_SHORT).show()
-            }
+            reloadSite()
         }
     }
 
@@ -105,6 +127,7 @@ class WebviewActivity : AppCompatActivity() {
         builder.setPositiveButton(android.R.string.yes) { _, _ ->
             val inputPin = input.text.toString().toInt()
             if (inputPin == pin?.toInt()) {
+                RefreshScheduler.cancel(this.applicationContext)
                 goToHome()
             } else {
                 Toast.makeText(

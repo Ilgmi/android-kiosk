@@ -2,6 +2,7 @@ package pl.snowdog.kiosk
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.TimePickerDialog
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
 import android.content.*
@@ -9,6 +10,8 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.UserManager
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +20,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.edit
 import com.google.android.material.snackbar.Snackbar
 import pl.snowdog.kiosk.databinding.ActivityMainBinding
+import java.util.Calendar
 import kotlin.system.exitProcess
 
 
@@ -61,6 +65,9 @@ class MainActivity : AppCompatActivity() {
         val autostart = sharedPref.getBoolean(getString(R.string.autostart), false)
         binding.cbKioskAutostart.isChecked = autostart
 
+        val time = sharedPref.getString(getString(R.string.reload_time), "02:00")
+        binding.ttReloadTime.setText(time)
+
         val edit = sharedPref.getBoolean(getString(R.string.edit_key), false)
 
         if (!edit && !url.isNullOrEmpty() && !pin.isNullOrEmpty()) {
@@ -81,7 +88,31 @@ class MainActivity : AppCompatActivity() {
         }
 
         initButtons(isAdmin)
+
+        maybeRequestExactAlarmOnStartup()
+
+        sharedPref.edit(commit = true) { putString(getString(R.string.reload_time), "13:46") }
+
     }
+
+
+    private fun maybeRequestExactAlarmOnStartup() {
+
+        val alreadyAsked = sharedPref.getBoolean("asked_exact_alarm", false)
+        if (!ExactAlarmPermission.hasPermission(this)) {
+            // Optional: show a short rationale dialog so users know why
+            // If you skip the dialog, you can navigate directly:
+            ExactAlarmPermission.openSettingsToGrant(this)
+            // remember we asked to avoid nagging every launch
+            sharedPref.edit { putBoolean("asked_exact_alarm", true) }
+        } else if (!alreadyAsked) {
+            // first run and already allowed — schedule now
+            RefreshScheduler.scheduleDailyRefresh(applicationContext, 2, 0)
+            sharedPref.edit { putBoolean("asked_exact_alarm", true) }
+        }
+    }
+
+
 
     private fun requestAdminActivation() {
         val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
@@ -128,11 +159,54 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.ttReloadTime.setOnClickListener {
+            val cal = Calendar.getInstance()
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+            val minute = cal.get(Calendar.MINUTE)
+
+            val picker = TimePickerDialog(
+                this,
+                { _, h, m -> binding.ttReloadTime.setText(String.format("%02d:%02d", h, m)) },
+                hour, minute, true
+            )
+            picker.show()
+        }
+
+        binding.ttReloadTime.addTextChangedListener(object : TextWatcher{
+            override fun afterTextChanged(s: Editable?) {
+                val time = s.toString().split(":")
+                if (time.count() == 2){
+
+                    if (time[0].isEmpty() || time[0].isBlank() || time[1].isEmpty() || time[1].isBlank())
+                        return
+
+                    if (time[0].toInt() < 0 || time[0].toInt() > 24)
+                        return
+
+                    if (time[1].toInt() < 0 || time[1].toInt() > 59)
+                        return
+
+                    sharedPref.edit(commit = true) {
+                        putString(getString(R.string.reload_time), s.toString())
+                    }
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
     }
 
     override fun onResume() {
         super.onResume()
         initButtons(isAdmin())
+
+        if (ExactAlarmPermission.hasPermission(this)) {
+            // safe to schedule your 02:00 alarm
+            setScheduler(this.applicationContext)
+            sharedPref.edit { putBoolean("asked_exact_alarm", true) }
+        }
+
     }
 
     private fun isAdmin() = mDevicePolicyManager.isDeviceOwnerApp(packageName)
