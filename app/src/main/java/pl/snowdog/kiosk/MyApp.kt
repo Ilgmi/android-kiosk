@@ -1,7 +1,12 @@
 package pl.snowdog.kiosk
 
+import VolumeResetWorker
 import android.app.Application
+import android.content.Context
 import androidx.core.content.edit
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 
 class MyApp: Application() {
 
@@ -16,5 +21,23 @@ class MyApp: Application() {
                 putBoolean(getString(R.string.edit_key), false)
             }
         }
+
+        scheduleVolumeReset(this)
     }
+
+    fun scheduleVolumeReset(context: Context) {
+        val request = PeriodicWorkRequestBuilder<VolumeResetWorker>(
+            15, java.util.concurrent.TimeUnit.MINUTES
+        )
+            // Optional: add constraints if you like (but not required here)
+            //.setConstraints(Constraints.NONE)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "reset_volume",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
 }
